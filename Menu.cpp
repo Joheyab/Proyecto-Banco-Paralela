@@ -6,7 +6,6 @@ Menu::Menu(const ArbolBinario &arbol, const HeapColaPrioridad &pq) : arbol(arbol
 
 void Menu::menuPrincipal() {
     cargaDatos();
-    cout<<"EL TAMANO DEL ARBOL ES: "<<arbol.getSize()<<endl;
     int opcion = 1;
     do {
         cout << "-----------------Menu Principal Banco Uno----------------------" << endl;
@@ -14,8 +13,9 @@ void Menu::menuPrincipal() {
         cout << "( 2 )  Encolar un cliente" << endl;
         cout << "( 3 )  Atender a los siguientes 5 clientes" << endl;
         cout << "( 4 )  Mostrar el siguiente cliente a ser atendido" << endl;
-        cout << "( 5 )  Simulacion de Atencion de Clientes" << endl;
-        cout << "( 6 )  Agregar un cliente nuevo" << endl;
+        cout << "( 5 )  Simulacion de Atencion de Clientes con hilos" << endl;
+        cout << "( 6 )  Simulacion de Atencion de Clientes sin hilos" << endl;
+        cout << "( 7 )  Agregar un cliente nuevo" << endl;
         cout << "( 0 )  Salir  " << endl << endl;
         cout << "--------------------------------------------" << endl;
         cout << "Digite una opcion del menu:  ";
@@ -44,11 +44,32 @@ void Menu::menuPrincipal() {
             case 6:
                 opcion6();
                 break;
+            case 7:
+            opcion7();
+            break;
             default:
                 cout<<"Opcion incorrecta"<<endl;
                 break;
         }
     } while ( opcion != 0);
+}
+
+void Menu::procesarClientes(HeapColaPrioridad &pq, mutex &pq_mutex, int &i) {
+    while (true) {
+        lock_guard<mutex> lock(pq_mutex); // Bloquea el mutex
+        if (pq.empty()) {
+            break;
+        }
+        cout << "----------CLIENTE PROXIMO A SER ATENDIDO----------" << endl;
+        cout << "CLIENTE NUMERO #" << i << " EN SER ATENDIDO" << endl;
+        cout << "POSICION EN LA COLA SEGUN INFLUENCIA: " << i << endl;
+        cout << "NOMBRE: " << pq.max()->getNombre() << endl;
+        cout << "ID: " << pq.max()->getIdentificacion() << endl;
+        cout << "% INFLUENCIA: " << pq.max()->getInfluencia() << endl;
+        cout << "---------------------------------------------------" << endl;
+        i++;
+        pq.eliminarMax();
+    }
 }
 
 void Menu::opcion1() {
@@ -159,8 +180,45 @@ void Menu::opcion4() {
 
 void Menu::opcion5() {
     int i = 1;
-    try{
-        if(!pq.empty()){
+    try {
+        if (!pq.empty()) {
+            // Inicia el temporizador
+            auto inicio = chrono::high_resolution_clock::now();
+
+            // Crea tres hilos para procesar los clientes
+            thread hilo1(procesarClientes, ref(pq), ref(pq_mutex), ref(i));
+            thread hilo2(procesarClientes, ref(pq), ref(pq_mutex), ref(i));
+            thread hilo3(procesarClientes, ref(pq), ref(pq_mutex), ref(i));
+
+            // Espera a que los hilos terminen
+            hilo1.join();
+            hilo2.join();
+            hilo3.join();
+
+            // Detiene el temporizador
+            auto fin = chrono::high_resolution_clock::now();
+            chrono::duration<double> duracion = fin - inicio;
+
+            // Muestra el tiempo de procesamiento
+            cout << "Tiempo de procesamiento usando hilos: " << duracion.count() << " segundos" << endl;
+        } else {
+            throw 1;
+        }
+    } catch (int error) {
+        cout << "NO HAY CLIENTES EN LA COLA PARA SER ATENDIDOS" << endl;
+    }
+}
+
+void Menu::opcion6() {
+    int i = 1;
+    try
+    {
+        if (!pq.empty())
+        {
+            // Inicia el temporizador
+            auto inicio = chrono::high_resolution_clock::now();
+
+            // Procesa los clientes secuencialmente
             do{
                 cout<< "----------CLIENTE PROXIMO A SER ATENDIDO----------"<<endl;
                 cout<<"CLIENTE NUMERO #"<<i<<" EN SER ATENDIDO"<<endl;
@@ -172,16 +230,22 @@ void Menu::opcion5() {
                 i++;
                 pq.eliminarMax();
             }while(pq.size() != 0);
-        } else{
+            // Detiene el temporizador
+            auto fin = chrono::high_resolution_clock::now();
+            chrono::duration<double> duracion = fin - inicio;
+
+            // Muestra el tiempo de procesamiento
+            cout << "Tiempo de procesamiento secuencial: " << duracion.count() << " segundos" << endl;
+        }else{
             throw 1;
         }
-
     }catch (int error){
         cout<<"NO HAY CLIENTES EN LA COLA PARA SER ATENDIDOS"<<endl;
     }
 }
 
-void Menu::opcion6() {
+
+void Menu::opcion7() {
     string apellido,nino, embarazada, adultoM, nombre, categoria;
     long long int id;
     int cate;
